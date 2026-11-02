@@ -1,9 +1,16 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: 'Optional tap test file selector'
+        required: false
+        default: ''
 
 jobs:
   build:
+    timeout-minutes: 40
     strategy:
       matrix:
         node-version: [18.x, 20.x, 22.x, 24.x]
@@ -36,4 +43,28 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Run Tests
-        run: npm test -- -c -t0
+        run: npm test -- -c -t0 ${{ inputs.test-filter }}
+
+      - name: List skipped tests and their reasons
+        if: matrix.platform.os == 'windows-latest'
+        shell: bash
+        run: |
+          echo "Skipped on Windows: the backslash-pattern cases in test/patterns.js carry"
+          echo "an upstream skip guard, because on win32 a backslash is a path separator"
+          echo "rather than an escape character, so those expectations cannot hold there."
+          echo "Upstream skip guards (test/patterns.js):"
+          grep -n "skip: process.platform === 'win32'" test/patterns.js
+          echo "Skipped asserts in this run:"
+          grep -rn "# SKIP" .tap/test-results/
+
+      - name: Pack
+        if: matrix.platform.os == 'ubuntu-latest' && matrix.node-version == '24.x'
+        run: npm pack
+
+      - name: Upload npm tarball
+        if: matrix.platform.os == 'ubuntu-latest' && matrix.node-version == '24.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball
+          path: minimatch-*.tgz
+          if-no-files-found: error

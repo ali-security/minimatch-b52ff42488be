@@ -1,9 +1,6 @@
 name: "various tidying up tasks to silence nagging"
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
